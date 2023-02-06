@@ -1,141 +1,243 @@
-// Promise 实现
+// promise的状态改变
+// then的多次调用
+// then方法的异步处理
+// then的链式调用
 
-const isFunction = value => typeof value === 'function'
 
-const PENDING = 'PENDING'
-const FULFILLED = 'FULFILLED'
-const REJECTED = 'REJECTED'
+const isFunc = value => typeof value === 'function'
+
+const PENDING = 'pending';
+const FULFILLED = 'fulfilled';
+const REJECTED = 'rejected';
 
 class MyPromise {
   constructor(handler) {
-    if (!isFunction(handler)) {
-      throw new Error('handler must be is a function')
+    if (!isFunc(handler)) {
+      throw new Error('handle must be a function');
     }
 
-    this._status = PENDING
-    this._value = undefined
+    this._status = PENDING;
+    this._value = undefined;
+    this._reason = undefined;
 
-    this._fulfilledQueues = []
-    this._rejectedQueues = []
+    this._fulfilledQueues = [];
+    this._rejectedQueues = [];
 
     try {
-      handler(this._resolve.bind(this), this._reject.bind(this))
+      handler(this._resolve.bind(this), this._reject.bind(this));
     } catch(err) {
-      this._reject(err)
+      this._reject(err);
     }
   }
 
-  _resolve(val) {
-    if (this._status !== PENDING) return
-    const run = () => {
-      this._status = FULFILLED
-      this._value = val
-      let cb
+  _resolve(value) {
+    if (this._status === PENDING) {
+      this._status = FULFILLED;
+      this._value = value;
+      let cb;
       while (cb = this._fulfilledQueues.shift()) {
-        cb(this._value)
+        cb(this._value);
       }
     }
-    // 模拟微任务
-    setTimeout(run, 0)
   }
 
-  _reject(err) {
-    if (this._status !== PENDING) return
-    const run = () => {
-      this._status = REJECTED
-      this._value = err
-      let cb
+  _reject(reason) {
+    if (this._status === PENDING) {
+      this._status = REJECTED;
+      this._reason = reason;
+      let cb;
       while (cb = this._rejectedQueues.shift()) {
-        cb(this._value)
+        cb(this._reason);
       }
     }
-    // 模拟微任务
-    setTimeout(run, 0)
+  }
+  
+  then(onResolve, onReject) {
+    const realOnResolve = isFunc(onResolve) ? onResolve : value => value;
+    const realOnReject = isFunc(onReject) ? onReject : reason => { throw reason };
+    
+    const promise2 = new MyPromise((resolve, reject) => {
+      const fulfilledMicrotask = () => {
+        queueMicrotask(() => {
+          try {
+            const x = realOnResolve(this._value);
+            resolvePromise(promise2, x, resolve, reject);
+          } catch(err) {
+            reject(err);
+          }
+        })
+      }
+
+      const rejectedMicrotask = () => {
+        queueMicrotask(() => {
+          try {
+            const x = realOnReject(this._reason);
+            resolvePromise(promise2, x, resolve, reject);
+          } catch(err) {
+            reject(err);
+          }
+        })
+      }
+
+      if (this._status === FULFILLED) {
+        fulfilledMicrotask();
+      } else if (this._status === REJECTED) {
+        rejectedMicrotask();
+      } else if (this._status === PENDING) {
+        this._fulfilledQueues.push(fulfilledMicrotask);
+        this._rejectedQueues.push(rejectedMicrotask);
+      }
+    })
+
+    return promise2;
   }
 
-  then(onFulfilled, onRejected) {
-    const { _status, _value } = this
+  catch(onReject) {
+    this.then(undefined, onReject);
+  }
 
-    return new MyPromise((resolveNext, rejectNext) => {
-      const fulfill = value => {
-        try {
-          if (!isFunction(onFulfilled)) {
-            resolveNext(value)
-          } else {
-            let res = onFulfilled(value)
-
-            if (res instanceof MyPromise) {
-              res.then(resolveNext, rejectNext)
-            } else {
-              resolveNext(res)
-            }
-          }
-        } catch(err) {
-          rejectNext(err)
-        }
-      }
-  
-      const reject = error => {
-        try {
-          if (!isFunction(onRejected)) {
-            rejectNext(error)
-          } else {
-            let res = onRejected(error)
-            if (res instanceof MyPromise) {
-              res.then(resolveNext, rejectNext)
-            } else {
-              resolveNext(res)
-            }
-          }
-        } catch(err) {
-          rejectNext(err)
-        }
-      }
-
-      switch(_status) {
-        case PENDING:
-          this._fulfilledQueues.push(onFulfilled)
-          this._rejectedQueues.push(onRejected)
-          break
-        case FULFILLED:
-          fulfill(_value)
-          break
-        case REJECTED:
-          reject(_value)
-          break
-      }
+  finally(fn) {
+    return this.then(value => {
+      return MyPromise.resolve(fn()).then(() => {
+        return value;
+      })
+    }, err => {
+      return MyPromise.resolve(fn(0)).then(() => {
+        throw err;
+      })
     })
   }
 
-  catch(onRejected) {
-    return this.then(undefined, onRejected)
-  }
-
   static resolve(value) {
-    if (value instanceof MyPromise) return value
-    return new MyPromise(resolve => resolve(value))
+    if (value instanceof MyPromise) {
+      return value;
+    }
+    return new MyPromise(resolve => {
+      resolve(value);
+    });
   }
 
-  static reject(error) {
-    if (err instanceof MyPromise) return error
-    return new Promise((resolve, reject) => reject(error))
+  static reject(reason) {
+    return new MyPromise((_, reject) => {
+      reject(reason)
+    });
   }
 
-  static race() {}
-
-  static all(list) {
+  static all(iterable) {
+    return new MyPromise((resolve, reject) => {
+      let length = iterable.length;
+      if (length === 0) return resolve([]);
+      const result = new Array(length);
+  
+      iterable.forEach((promise, index) => {
+        MyPromise.resolve(promise).then(value => {
+          result[index] = value;
+          length--;
+          if (length === 0) {
+            resolve(result);
+          }
+        }, reason => {
+          reject(reason);
+        })
+      })
+    })
   }
 
-  static finally() {}
+  static race(iterable) {
+    return new MyPromise((resolve, reject) => {
+      const length = iterable.length;
+      if (length === 0) {
+        return resolve();
+      }
+
+      for (let promise of iterable) {
+        MyPromise.resolve(promise).then(value => {
+          resolve(value);
+        }, reason => {
+          reject(reason);
+        })
+      }
+    });
+  }
+
+  static allSettled(iterable) {
+    return new MyPromise((resolve, reject) => {
+      let length = iterable.length;
+      if (length === 0) return resolve([]);
+      const result = new Array(length);
+      
+      iterable.forEach((promise, index) => {
+        MyPromise.resolve(promise).then(value => {
+          length--;
+          result[index] = {
+            status: 'fulfilled',
+            value: value
+          }
+          if (length === 0) {
+            resolve(result);
+          }
+        }, reason => {
+          length--;
+          result[index] = {
+            status: 'rejected',
+            reason: reason
+          }
+          if (length === 0) {
+            resolve(result);
+          }
+        })
+      })
+    })
+  }
+
+  static any(iterable) {
+    return new MyPromise((resolve, reject) => {
+      let length = iterable.length;
+      if (length === 0) {
+        return reject(new Error('All promises were rejected'));
+      }
+
+      iterable.forEach((promise) => {
+        MyPromise.resolve(promise).then(value => {
+          resolve(value);
+        }, reason => {
+          length--;
+          if (length === 0) {
+            reject('All promises were rejected');
+          }
+        })
+      })
+    })
+  }
 }
 
-const handler = (resolve, reject) => {
-  // setTimeout(() => resolve(1), 1000)
-  reject(1)
+function resolvePromise(promise2, x, resolve, reject) {
+  if (promise2 === x) {
+    return reject(new TypeError('Not return self'))
+  }
+  
+  if (x instanceof MyPromise) {
+    x.then(resolve, reject)
+  } else {
+    resolve(x)
+  }
 }
 
-const promise = new MyPromise(handler)
+// 参考: https://juejin.cn/post/6844903665686282253
+// 参考: https://juejin.cn/post/6945319439772434469#heading-21
 
-promise.catch(err => {
-  console.log(err, 'okokoko')
+const promiseList = MyPromise.any([
+  MyPromise.reject('fail'),
+  new MyPromise((resolve) => {
+    setTimeout(() => {
+      resolve(2);
+    }, 10);
+  }),
+  MyPromise.resolve(3),
+  4,
+])
+promiseList.then(res => {
+  console.log(res, 'res')
+}).catch(error => {
+  console.log(error, 'error')
 })
