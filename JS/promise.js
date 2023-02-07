@@ -197,11 +197,14 @@ class MyPromise {
         return reject(new Error('All promises were rejected'));
       }
 
-      iterable.forEach((promise) => {
+      const errorList = [];
+
+      iterable.forEach((promise, index) => {
         MyPromise.resolve(promise).then(value => {
           resolve(value);
         }, reason => {
           length--;
+          errorList[index] = reason;
           if (length === 0) {
             reject('All promises were rejected');
           }
