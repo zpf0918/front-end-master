@@ -6,7 +6,7 @@ export default function promiseAny(iterable) {
   return new Promise((resolve, reject) => {
     let length = iterable.length;
     if (length === 0) {
-      reject(new AggregateError([]))
+      reject(new AggregateError([]));
       return;
     }
 

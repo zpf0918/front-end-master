@@ -102,7 +102,7 @@ class MyPromise {
         return value;
       })
     }, err => {
-      return MyPromise.resolve(fn(0)).then(() => {
+      return MyPromise.resolve(fn()).then(() => {
         throw err;
       })
     })
@@ -194,7 +194,7 @@ class MyPromise {
     return new MyPromise((resolve, reject) => {
       let length = iterable.length;
       if (length === 0) {
-        return reject(new Error('All promises were rejected'));
+        return reject(new AggregateError([]));
       }
 
       const errorList = [];
@@ -206,7 +206,7 @@ class MyPromise {
           length--;
           errorList[index] = reason;
           if (length === 0) {
-            reject('All promises were rejected');
+            reject(new AggregateError(errorList));
           }
         })
       })
@@ -229,18 +229,18 @@ function resolvePromise(promise2, x, resolve, reject) {
 // 参考: https://juejin.cn/post/6844903665686282253
 // 参考: https://juejin.cn/post/6945319439772434469#heading-21
 
-const promiseList = MyPromise.any([
-  MyPromise.reject('fail'),
-  new MyPromise((resolve) => {
+const promiseList = [
+  new Promise(resolve => {
     setTimeout(() => {
-      resolve(2);
-    }, 10);
+      resolve(1)
+    }, 1000)
   }),
-  MyPromise.resolve(3),
-  4,
-])
-promiseList.then(res => {
-  console.log(res, 'res')
-}).catch(error => {
-  console.log(error, 'error')
+  2,
+  3
+]
+
+MyPromise.all(promiseList).then(res => {
+  console.log(res)
+}, reason => {
+  console.log(reason)
 })
