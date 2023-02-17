@@ -1,4 +1,5 @@
-function depthFirstSearch(nodes) {
+function depthFirstSearch(root) {
+  const nodes = Array.isArray(root) ? root : [root];
   const result = [];
   const stack = [];
   for (let i = nodes.length - 1; i >= 0; i--) {
@@ -79,6 +80,7 @@ const node = {
   ]
 }
 
-const res = depthFirstSearch(nodes);
+const res1 = depthFirstSearch(nodes);
+const res2 = depthFirstSearch(node);
 const resTwo = depthFirstSearchTwo(node);
-console.log(resTwo);
+console.log(res1, res2);

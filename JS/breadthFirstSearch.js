@@ -1,25 +1,9 @@
-// 单个节点
-function breadthFirstSearchOne(node) {
-  const result = [];
-  const queue = [node];
-  while (queue.length !== 0) {
-    const item = queue.shift();
-    result.push(item);
-    const children = item.children || [];
-    for (let i = 0; i < children.length; i++) {
-      queue.push(children[i]);
-    }
-  }
-
-  return result;
-}
-
-// 多个节点
-function breadthFirstSearchTwo(nodes) {
+function breadthFirstSearch(root) {
+  const nodes = Array.isArray(root) ? root : [root];
   const result = [];
   const queue = [];
-  for (let node of nodes) {
-    queue.push(node);
+  for (let i = 0; i < nodes.length; i++) {
+    queue.push(nodes[i]);
   }
   while (queue.length !== 0) {
     const item = queue.shift();
@@ -29,7 +13,6 @@ function breadthFirstSearchTwo(nodes) {
       queue.push(children[i]);
     }
   }
-
   return result;
 }
 
@@ -84,7 +67,7 @@ const nodes = [
   }
 ]
 
-const resNode = breadthFirstSearchOne(node);
-const resNodes = breadthFirstSearchTwo(nodes);
+const resNode = breadthFirstSearch(node);
+const resNodes = breadthFirstSearch(nodes);
 console.log(resNode);
 console.log(resNodes);
