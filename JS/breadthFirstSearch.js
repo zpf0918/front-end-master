@@ -16,6 +16,30 @@ function breadthFirstSearch(root) {
   return result;
 }
 
+// 返回一个二维数组，二维数组中的每个元素为一层
+function breadthFirstSearchTwo(value) {
+  const nodes = Array.isArray(value) ? value : [value];
+  const result = [], queue = [];
+  for (let node of nodes) {
+    queue.push(node);
+  }
+
+  while (queue.length !== 0) {
+    const size = queue.length;
+    const level = [];
+    for (let i = 0; i < size; i++) {
+      const item = queue.shift();
+      level.push(item.name);
+      const children = item.children || [];
+      for (let j = 0; j < children.length; j++) {
+        queue.push(children[j]);
+      }
+    }
+    result.push(level);
+  }
+  return result;
+}
+
 const node = {
   name: 'name0',
   children: [
