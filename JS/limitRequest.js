@@ -19,13 +19,42 @@ function limitRequests(requests, maxConcurrency) {
         })
       }
 
-      // 这里必须写catch 不然执行起来会报错 这里reject和上面reject是一个效果
-      await Promise.race(inFlightList).catch(error => {
-        // reject(error)
-      })
+      // 这里必须写catch， 而且需要写一个空函数 不然执行起来会报错 这里reject和上面reject是一个效果
+      // 在使用limitRequests时也需要一个catch方法
+      await Promise.race(inFlightList).catch(error => {})
     }
     resolve(results);
   })
+}
+
+// 第二种写法 更加好理解
+async function limitRequests2(requests, maxConcurrency) {
+  let results = new Array(requests.length);
+  let requestPool = requests.map((request, index) => ({ request, index }));
+  let inFlightList = new Set();
+
+  while (requestPool.length > 0 || inFlightList.size > 0) {
+    while (inFlightList.size <= maxConcurrency && requestPool.length > 0) {
+      const { request, index } = requestPool.shift();
+      const promise = request();
+      inFlightList.add(promise);
+      promise.then(value => {
+        results[index] = value;
+        inFlightList.delete(promise);
+      }).catch(reason => {
+        inFlightList.delete(promise);
+      })
+    }
+
+    // 在使用limitRequests时也需要一个catch方法
+    try {
+      await Promise.race(inFlightList);
+    } catch(err) {
+      throw err;
+    }
+  }
+
+  return results;
 }
 
 const requestList = [
@@ -43,4 +72,4 @@ const requestList = [
 
 limitRequests(requestList, 3).then(val => {
   console.log(val, 'okok')
-});
+}).catch(err => {});
