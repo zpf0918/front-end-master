@@ -1,29 +1,31 @@
 // 使用promise实现异步并发数控制。例如共有10个请求，最大并发数是3，每次最多都只能发起3个请求，如果这三个请求中有一个先完成，然后把剩下的请求加入到请求队列里，以保证最大的利用率
-async function limitRequests(requests, maxConcurrency) {
-  const results = new Array(requests.length);
-  const requestPool = requests.map((request, index) => ({ request, index }));
-  const inFlightRequests = new Set();
+function limitRequests(requests, maxConcurrency) {
+  let results = new Array(requests.length);
+  let requestPool = requests.map((request, index) => ({ request, index }));
+  let inFlightList = new Set();
 
-  while (requestPool.length > 0 || inFlightRequests.size > 0) {
-    while (inFlightRequests.size < maxConcurrency && requestPool.length > 0) {
-      console.log(inFlightRequests.size);
-      const { request, index } = requestPool.shift();
-      const promise = request();
-      inFlightRequests.add(promise);
-      promise.then(result => {
-        results[index] = result;
-        console.log(result, 'result')
-        inFlightRequests.delete(promise);
-      }).catch(error => {
-        console.error(error);
-        inFlightRequests.delete(promise);
-      });
+  return new Promise(async (resolve, reject) => {
+    while (requestPool.length > 0 || inFlightList.size > 0) {
+      while (inFlightList.size <= maxConcurrency && requestPool.length > 0) {
+        const { request, index } = requestPool.shift();
+        const promise = request();
+        inFlightList.add(promise);
+        promise.then(value => {
+          results[index] = value;
+          inFlightList.delete(promise);
+        }).catch(reason => {
+          inFlightList.delete(promise);
+          reject(reason)
+        })
+      }
+
+      // 这里必须写catch 不然执行起来会报错 这里reject和上面reject是一个效果
+      await Promise.race(inFlightList).catch(error => {
+        // reject(error)
+      })
     }
-
-    await Promise.race(inFlightRequests);
-  }
-
-  return results;
+    resolve(results);
+  })
 }
 
 const requestList = [
