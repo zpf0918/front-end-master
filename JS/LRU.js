@@ -21,6 +21,7 @@ class DoubleList {
   addLast(x) {
     x.next = this.tail;
     x.prev = this.tail.prev;
+    // 这里的循序要注意，不可以写反了
     this.tail.prev.next = x;
     this.tail.prev = x;
     this.size++;
@@ -81,7 +82,7 @@ class LRUCache {
   }
 
   put(key, val) {
-    if (this.map.get(key)) {
+    if (this.map.has(key)) {
       this.deleteKey(key);
       this.addRecently(key, val);
       return;
